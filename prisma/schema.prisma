@@ -1,0 +1,424 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  MANAGER
+}
+
+enum FinancialStatus {
+  PAGO
+  PENDENTE
+  RECEBIDO
+  EM_ABERTO
+  EM_NEGOCIACAO
+  RENEGOCIADO
+  CANCELADO
+}
+
+enum ApprovalStatus {
+  APROVADO
+  REPROVADO
+  AGUARDANDO_APROVACAO
+}
+
+enum Recurrence {
+  UNICA
+  SEMANAL
+  MENSAL
+  ANUAL
+  PAGAMENTO_UNICO
+}
+
+enum IncomeType {
+  SALARIO
+  BENEFICIO
+  TRABALHO_EXTRA
+  PENSAO
+  VENDA
+  OUTRO
+}
+
+enum DebtPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum PlanStatus {
+  NAO_INICIADO
+  EM_ANDAMENTO
+  CONCLUIDO
+  ATRASADO
+  PAUSADO
+}
+
+enum ActionItemStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+  NAO_REALIZADA
+}
+
+enum ActionCategory {
+  PAGAMENTO
+  ORGANIZACAO
+  RENEGOCIACAO
+  RESERVA_FINANCEIRA
+  ATUALIZACAO_CADASTRAL
+  CONTATO_COM_CREDOR
+  OUTRO
+}
+
+enum RenegotiationStatus {
+  AGUARDANDO_APROVACAO
+  APROVADA
+  REPROVADA
+  ATIVA
+  CONCLUIDA
+  CANCELADA
+}
+
+enum ContactChannel {
+  TELEFONE
+  APLICATIVO
+  SITE
+  PRESENCIAL
+  OUTRO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          UserRole
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  clientProfile  ClientProfile?
+  managerProfile ManagerProfile?
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+}
+
+model ClientProfile {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  phone     String?
+  city      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  managers          ManagerClientRelationship[]
+  incomes           Income[]
+  fixedCosts        FixedCost[]
+  expenses          Expense[]
+  debts             Debt[]
+  actionPlans       ActionPlan[]
+  gamification      GamificationProfile?
+  pointTransactions PointTransaction[]
+  achievements      UserAchievement[]
+  attachments       Attachment[]
+}
+
+model ManagerProfile {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  company   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clients  ManagerClientRelationship[]
+  plans    ActionPlan[]
+}
+
+model ManagerClientRelationship {
+  id        String   @id @default(cuid())
+  managerId String
+  clientId  String
+  createdAt DateTime @default(now())
+
+  manager ManagerProfile @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  client  ClientProfile  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([managerId, clientId])
+}
+
+model Income {
+  id               String         @id @default(cuid())
+  clientId         String
+  description      String
+  category         String
+  amount           Float
+  receivedAt       DateTime
+  incomeType       IncomeType
+  recurrence       Recurrence     @default(UNICA)
+  recurrenceStart  DateTime?
+  recurrenceEnd    DateTime?
+  financialStatus  FinancialStatus @default(PENDENTE)
+  approvalStatus   ApprovalStatus  @default(AGUARDANDO_APROVACAO)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  client ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model FixedCost {
+  id               String          @id @default(cuid())
+  clientId         String
+  name             String
+  category         String
+  amount           Float
+  frequency        Recurrence      @default(MENSAL)
+  dueDay           Int
+  nextDueDate      DateTime
+  paymentMethod    String?
+  financialStatus  FinancialStatus @default(PENDENTE)
+  approvalStatus   ApprovalStatus  @default(AGUARDANDO_APROVACAO)
+  notes            String?
+  receiptUrl       String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  client ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id               String          @id @default(cuid())
+  clientId         String
+  description      String
+  category         String
+  amount           Float
+  date             DateTime
+  paymentMethod    String?
+  recurrence       Recurrence      @default(UNICA)
+  financialStatus  FinancialStatus @default(PENDENTE)
+  approvalStatus   ApprovalStatus  @default(AGUARDANDO_APROVACAO)
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  client ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Debt {
+  id               String          @id @default(cuid())
+  clientId         String
+  name             String
+  creditor         String
+  category         String
+  originalAmount   Float
+  openBalance      Float
+  contractedAt     DateTime
+  dueDate          DateTime
+  installmentCount Int?
+  installmentValue Float?
+  frequency        Recurrence      @default(MENSAL)
+  financialStatus  FinancialStatus @default(EM_ABERTO)
+  approvalStatus   ApprovalStatus  @default(AGUARDANDO_APROVACAO)
+  priority         DebtPriority    @default(MEDIA)
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  client          ClientProfile       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  renegotiations  DebtRenegotiation[]
+}
+
+model DebtRenegotiation {
+  id                 String              @id @default(cuid())
+  debtId             String
+  renegotiatedAt     DateTime
+  agreementDesc      String
+  totalAmount        Float
+  downPayment        Float?
+  paymentAmount      Float
+  paymentCount       Int
+  frequency          Recurrence
+  firstPaymentDate   DateTime
+  attendantName      String?
+  channel            ContactChannel      @default(OUTRO)
+  protocolNumber     String?
+  status             RenegotiationStatus @default(AGUARDANDO_APROVACAO)
+  notes              String?
+  attachmentUrl      String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+
+  debt     Debt                   @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  payments RenegotiationPayment[]
+}
+
+model RenegotiationPayment {
+  id              String          @id @default(cuid())
+  renegotiationId String
+  dueDate         DateTime
+  amount          Float
+  financialStatus FinancialStatus @default(PENDENTE)
+  paidAt          DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  renegotiation DebtRenegotiation @relation(fields: [renegotiationId], references: [id], onDelete: Cascade)
+}
+
+model ActionPlan {
+  id          String     @id @default(cuid())
+  clientId    String
+  managerId   String
+  title       String
+  objective   String
+  description String?
+  startDate   DateTime
+  dueDate     DateTime
+  priority    DebtPriority @default(MEDIA)
+  status      PlanStatus   @default(NAO_INICIADO)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  client  ClientProfile  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager ManagerProfile @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  items   ActionItem[]
+}
+
+model ActionItem {
+  id               String           @id @default(cuid())
+  planId           String
+  title            String
+  description      String?
+  category         ActionCategory   @default(OUTRO)
+  relatedItemLabel String?
+  relatedAmount    Float?
+  dueDate          DateTime
+  priority         DebtPriority     @default(MEDIA)
+  pointsAwarded    Int              @default(20)
+  status           ActionItemStatus @default(PENDENTE)
+  guidance         String?
+  completedAt      DateTime?
+  completedByClient Boolean         @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  plan       ActionPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  validation ActionValidation?
+}
+
+model ActionValidation {
+  id              String   @id @default(cuid())
+  actionItemId    String   @unique
+  validatedById   String
+  validatedAt     DateTime @default(now())
+  notes           String?
+  approved        Boolean  @default(true)
+
+  actionItem ActionItem @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+}
+
+model GamificationProfile {
+  id              String   @id @default(cuid())
+  clientId        String   @unique
+  totalPoints     Int      @default(0)
+  level           Int      @default(1)
+  streakDays      Int      @default(0)
+  lastActivityAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model PointTransaction {
+  id          String   @id @default(cuid())
+  clientId    String
+  points      Int
+  reason      String
+  sourceKey   String
+  createdAt   DateTime @default(now())
+
+  client ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, sourceKey])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  title       String
+  description String
+  icon        String?
+  createdAt   DateTime @default(now())
+
+  users UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  clientId      String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  client      ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  achievement Achievement   @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, achievementId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  clientId  String
+  fileName  String
+  fileUrl   String
+  entityType String
+  entityId  String
+  createdAt DateTime @default(now())
+
+  client ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  entityType  String
+  entityId    String
+  action      String
+  previousData String?
+  newData     String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
