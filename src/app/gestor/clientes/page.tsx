@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { isBefore } from "date-fns";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PlanStatus } from "@prisma/client";
 import { getManagerContext } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
@@ -115,6 +115,14 @@ export default async function GestorClientesPage({ searchParams }: { searchParam
       <PageHeader
         title="Clientes"
         description="Lista de clientes vinculados ao seu perfil de gestor."
+        actions={
+          <Link href="/gestor/clientes/novo">
+            <Button>
+              <Plus className="h-4 w-4" />
+              Novo cliente
+            </Button>
+          </Link>
+        }
       />
 
       <Card className="mb-6">
@@ -162,7 +170,15 @@ export default async function GestorClientesPage({ searchParams }: { searchParam
       {rows.length === 0 ? (
         <EmptyState
           title="Nenhum cliente encontrado"
-          description="Ajuste os filtros ou confirme se há clientes vinculados ao seu perfil."
+          description="Ajuste os filtros ou crie o primeiro login de cliente."
+          action={
+            <Link href="/gestor/clientes/novo">
+              <Button>
+                <Plus className="h-4 w-4" />
+                Novo cliente
+              </Button>
+            </Link>
+          }
         />
       ) : (
         <div className="space-y-4">

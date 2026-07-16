@@ -23,10 +23,11 @@ Abra [http://localhost:3000](http://localhost:3000).
 
 ### Contas de demonstração
 
-| Perfil  | E-mail            | Senha  |
-|---------|-------------------|--------|
-| Cliente | cliente@demo.com  | 123456 |
-| Gestor  | gestor@demo.com   | 123456 |
+| Perfil  | E-mail           | Senha  |
+|---------|------------------|--------|
+| Gestor  | gestor@demo.com  | 123456 |
+
+O gestor cria logins de cliente em **Clientes → Novo cliente** (`/gestor/clientes/novo`).
 
 ## Scripts úteis
 
